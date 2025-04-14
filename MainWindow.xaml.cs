@@ -20,29 +20,49 @@ namespace Tool
         public MainWindow()
         {
             InitializeComponent();
-
-            CheckForUpdate();
+            Loaded += MainWindow_Loaded;
 
             labelVersion.Content = Assembly.GetExecutingAssembly().GetName().Version;
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            await CheckForUpdate();
         }
 
         async Task CheckForUpdate()
         {
             Version localVersion = Assembly.GetExecutingAssembly().GetName().Version;
 
-            var (remoteVersion, downloadUrl) = await GitHubReleaseChecker.GetLatestReleaseAsync();
-
-            if (remoteVersion > localVersion)
+            try
             {
-                Process process = new Process();
-                ProcessStartInfo psi = new ProcessStartInfo();
+                var (remoteVersion, downloadUrl) = await GitHubReleaseChecker.GetLatestReleaseAsync();
 
-                psi.UseShellExecute = true;
-                psi.FileName = System.IO.Path.Combine(AppContext.BaseDirectory, "Updater.exe");
-                process.StartInfo = psi;
+                if (remoteVersion > localVersion)
+                {
+                    var updaterPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Updater.exe");
 
-                process.Start();
-                Environment.Exit(0);
+                    if (File.Exists(updaterPath))
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            UseShellExecute = true,
+                            FileName = updaterPath,
+                            Arguments = $"\"{downloadUrl}\""
+                        };
+
+                        Process.Start(psi);
+                        Application.Current.Shutdown();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Updater.exe not found!", "Update error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+            catch (Exception err)
+            {
+                MessageBox.Show($"Update check failed: {err.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
